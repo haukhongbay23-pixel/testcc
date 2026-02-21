@@ -6,63 +6,115 @@ local Window = OrionLib:MakeWindow({
     IntroText = "Welcome chii Hauu"
 })
 
+-- // CẤU HÌNH //
 _G.AutoFarm = false
-_G.BringMob = true
-_G.DistanceMob = 10 
-_G.Weapon = "Melee" -- Thay bằng "Sword" nếu muốn dùng kiếm
+_G.Weapon = "Melee" 
+_G.DistanceMob = 10
 
--- Hàm tự lấy vũ khí
+-- // DỮ LIỆU QUEST SEA 1 //
+local function GetQuest()
+    local lvl = game.Players.LocalPlayer.Data.Level.Value
+    if lvl >= 1 and lvl <= 9 then
+        return {"BanditQuest1", "Bandit", CFrame.new(1059, 15, 1550)}
+    elseif lvl >= 10 and lvl <= 14 then
+        return {"MonkeyQuest1", "Monkey", CFrame.new(-1598, 35, 153)}
+    elseif lvl >= 15 and lvl <= 29 then
+        return {"GorillaQuest1", "Gorilla", CFrame.new(-1598, 35, 153)}
+    else
+        -- Mặc định nếu chưa thêm level cao hơn thì quay về đảo khởi đầu
+        return {"BanditQuest1", "Bandit", CFrame.new(1059, 15, 1550)}
+    end
+end
+
+-- // HÀM HỖ TRỢ //
 function EquipWeapon()
     pcall(function()
         for i,v in pairs(game.Players.LocalPlayer.Backpack:GetChildren()) do
-            if v.ToolTip == _G.Weapon then
+            if v.ToolTip == _G.Weapon or v.Name == _G.Weapon then
                 game.Players.LocalPlayer.Character.Humanoid:EquipTool(v)
             end
         end
     end)
 end
 
--- Hàm di chuyển
 function TweenTo(Pos)
     local char = game.Players.LocalPlayer.Character
     if char and char:FindFirstChild("HumanoidRootPart") then
         local Distance = (Pos.Position - char.HumanoidRootPart.Position).Magnitude
+        if Distance < 20 then -- Nếu quá gần thì dịch chuyển tức thời để mượt
+            char.HumanoidRootPart.CFrame = Pos
+            return
+        end
         local Speed = 300 
         game:GetService("TweenService"):Create(char.HumanoidRootPart, TweenInfo.new(Distance/Speed, Enum.EasingStyle.Linear), {CFrame = Pos}):Play()
     end
 end
 
--- Tab Main
+-- // LOGIC CHÍNH //
+spawn(function()
+    while wait() do
+        if _G.AutoFarm then
+            pcall(function()
+                -- Kiểm tra xem có đang cầm Quest không
+                if not game:GetService("Players").LocalPlayer.PlayerGui.Main:FindFirstChild("Quest") then
+                    local QuestData = GetQuest()
+                    TweenTo(QuestData[3])
+                    wait(0.5)
+                    game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("StartQuest", QuestData[1], 1)
+                else
+                    local QuestData = GetQuest()
+                    local TargetName = QuestData[2]
+                    -- Tìm quái còn sống
+                    local Enemy = nil
+                    for i,v in pairs(game.Workspace.Enemies:GetChildren()) do
+                        if v.Name == TargetName and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
+                            Enemy = v
+                            break
+                        end
+                    end
+                    
+                    if Enemy and Enemy:FindFirstChild("HumanoidRootPart") then
+                        _G.CurrentMobPos = Enemy.HumanoidRootPart.CFrame
+                        EquipWeapon()
+                        TweenTo(Enemy.HumanoidRootPart.CFrame * CFrame.new(0, _G.DistanceMob, 0))
+                        
+                        -- Tự động đánh
+                        game:GetService('VirtualUser'):CaptureController()
+                        game:GetService('VirtualUser'):ClickButton1(Vector2.new(851, 158), game.Workspace.CurrentCamera.CFrame)
+                    else
+                        -- Đợi quái hồi (Bay lên cao tránh bị đánh)
+                        local QuestData = GetQuest()
+                        TweenTo(QuestData[3] * CFrame.new(0, 40, 0))
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+-- // GIAO DIỆN //
 local MainTab = Window:MakeTab({Name = "Main", Icon = "rbxassetid://4483345998"})
-MainTab:AddLabel("Hacker: chii Hauu")
+MainTab:AddLabel("User: chii Hauu")
+
+MainTab:AddDropdown({
+	Name = "Chọn Vũ Khí",
+	Default = "Melee",
+	Options = {"Melee", "Sword", "Blox Fruit"},
+	Callback = function(Value)
+		_G.Weapon = Value
+	end    
+})
 
 MainTab:AddToggle({
-	Name = "Auto Farm Level",
+	Name = "Auto Farm Level + Quest",
 	Default = false,
 	Callback = function(Value)
 		_G.AutoFarm = Value
-        spawn(function()
-            while _G.AutoFarm do
-                wait()
-                pcall(function()
-                    local Enemy = game.Workspace.Enemies:FindFirstChildOfClass("Model")
-                    if Enemy and Enemy:FindFirstChild("HumanoidRootPart") and Enemy.Humanoid.Health > 0 then
-                        _G.CurrentMobPos = Enemy.HumanoidRootPart.CFrame
-                        EquipWeapon() -- Tự cầm vũ khí
-                        TweenTo(Enemy.HumanoidRootPart.CFrame * CFrame.new(0, _G.DistanceMob, 0))
-                        
-                        -- Click đánh
-                        game:GetService('VirtualUser'):CaptureController()
-                        game:GetService('VirtualUser'):ClickButton1(Vector2.new(851, 158), game.Workspace.CurrentCamera.CFrame)
-                    end
-                end)
-            end
-        end)
 	end    
 })
 
 MainTab:AddSlider({
-	Name = "Khoảng cách Farm",
+	Name = "Khoảng cách đứng (Y Axis)",
 	Min = 5,
 	Max = 25,
 	Default = 10,
