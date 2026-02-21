@@ -1,0 +1,77 @@
+local OrionLib = loadstring(game:HttpGet(('https://raw.githubusercontent.com/shlexware/Orion/main/source')))()
+local Window = OrionLib:MakeWindow({
+    Name = "Apple Hub Clone | chii Hauu Edition", 
+    HidePremium = false, 
+    SaveConfig = true,
+    IntroText = "Welcome chii Hauu"
+})
+
+_G.AutoFarm = false
+_G.BringMob = true
+_G.DistanceMob = 10 
+_G.Weapon = "Melee" -- Thay bằng "Sword" nếu muốn dùng kiếm
+
+-- Hàm tự lấy vũ khí
+function EquipWeapon()
+    pcall(function()
+        for i,v in pairs(game.Players.LocalPlayer.Backpack:GetChildren()) do
+            if v.ToolTip == _G.Weapon then
+                game.Players.LocalPlayer.Character.Humanoid:EquipTool(v)
+            end
+        end
+    end)
+end
+
+-- Hàm di chuyển
+function TweenTo(Pos)
+    local char = game.Players.LocalPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        local Distance = (Pos.Position - char.HumanoidRootPart.Position).Magnitude
+        local Speed = 300 
+        game:GetService("TweenService"):Create(char.HumanoidRootPart, TweenInfo.new(Distance/Speed, Enum.EasingStyle.Linear), {CFrame = Pos}):Play()
+    end
+end
+
+-- Tab Main
+local MainTab = Window:MakeTab({Name = "Main", Icon = "rbxassetid://4483345998"})
+MainTab:AddLabel("Hacker: chii Hauu")
+
+MainTab:AddToggle({
+	Name = "Auto Farm Level",
+	Default = false,
+	Callback = function(Value)
+		_G.AutoFarm = Value
+        spawn(function()
+            while _G.AutoFarm do
+                wait()
+                pcall(function()
+                    local Enemy = game.Workspace.Enemies:FindFirstChildOfClass("Model")
+                    if Enemy and Enemy:FindFirstChild("HumanoidRootPart") and Enemy.Humanoid.Health > 0 then
+                        _G.CurrentMobPos = Enemy.HumanoidRootPart.CFrame
+                        EquipWeapon() -- Tự cầm vũ khí
+                        TweenTo(Enemy.HumanoidRootPart.CFrame * CFrame.new(0, _G.DistanceMob, 0))
+                        
+                        -- Click đánh
+                        game:GetService('VirtualUser'):CaptureController()
+                        game:GetService('VirtualUser'):ClickButton1(Vector2.new(851, 158), game.Workspace.CurrentCamera.CFrame)
+                    end
+                end)
+            end
+        end)
+	end    
+})
+
+MainTab:AddSlider({
+	Name = "Khoảng cách Farm",
+	Min = 5,
+	Max = 25,
+	Default = 10,
+	Color = Color3.fromRGB(255, 0, 0),
+	Increment = 1,
+	ValueName = "Studs",
+	Callback = function(Value)
+		_G.DistanceMob = Value
+	end    
+})
+
+OrionLib:Init()
