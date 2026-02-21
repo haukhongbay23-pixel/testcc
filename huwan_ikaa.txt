@@ -126,4 +126,4 @@ MainTab:AddSlider({
 	end    
 })
 
-OrionLib:Init()
+
